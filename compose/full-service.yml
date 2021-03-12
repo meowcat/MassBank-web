@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-mariadb
+    ports:
+      - "340${TAG}:3306"
     volumes:
       - $PWD/modules/sql/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
     environment:
