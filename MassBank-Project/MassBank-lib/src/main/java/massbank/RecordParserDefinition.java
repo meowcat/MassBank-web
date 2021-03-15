@@ -152,6 +152,9 @@ public class RecordParserDefinition extends GrammarDefinition {
 						digit().times(5)
 					)
 				)
+				.or(
+					(letter().or(digit())).times(8)
+				)
 				.flatten()
 				.map((String value) -> {
 					callback.ACCESSION(value);
