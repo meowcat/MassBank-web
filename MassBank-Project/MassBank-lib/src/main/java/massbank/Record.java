@@ -1,46 +1,76 @@
+/*******************************************************************************
+ * Copyright (C) 2017 MassBank consortium
+ * 
+ * This file is part of MassBank.
+ * 
+ * MassBank is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * 
+ ******************************************************************************/
 package massbank;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.openscience.cdk.AtomContainer;
-import org.openscience.cdk.DefaultChemObjectBuilder;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.openscience.cdk.exception.CDKException;
 import org.openscience.cdk.exception.InvalidSmilesException;
 import org.openscience.cdk.inchi.InChIGeneratorFactory;
 import org.openscience.cdk.inchi.InChIToStructure;
 import org.openscience.cdk.interfaces.IAtomContainer;
 import org.openscience.cdk.interfaces.IMolecularFormula;
+import org.openscience.cdk.silent.SilentChemObjectBuilder;
 import org.openscience.cdk.smiles.SmilesParser;
 import org.openscience.cdk.tools.manipulator.MolecularFormulaManipulator;
 
 import net.sf.jniinchi.INCHI_RET;
 
+/**
+ * This class keeps all data of a record.
+ * @author rmeier
+ * @version 05-05-2020
+ */
 public class Record {
 	private static final Logger logger = LogManager.getLogger(Record.class);
 
 	private final String contributor;
 	
 	private String accession;
-	private boolean deprecated = false;
-	private String deprecated_content = null;
+	private boolean deprecated;
+	private String deprecated_content;
 	private List<String> record_title;
 	private String date;
 	private String authors;
 	private String license;	
 	private String copyright; // optional
 	private String publication; // optional
+	private String project; // optional
 	private List<String> comment; // optional
 	private List<String> ch_name;
 	private List<String> ch_compound_class;
 	private String ch_formula;
-	private double ch_exact_mass;
+	private BigDecimal ch_exact_mass;
 	private String ch_smiles;
 	private String ch_iupac;
 	private List<Pair<String, String>> ch_link; // optional
@@ -58,9 +88,8 @@ public class Record {
 	private List<Pair<String, String>> ms_data_processing; // optional
 	private String pk_splash;
 	private List<String> pk_annotation_header; // optional
-	private final List<List<String>> pk_annotation; // optional
-	private int pk_num_peak;
-	private final List<List<Double>> pk_peak;
+	private final List<Pair<BigDecimal, List<String>>> pk_annotation; // optional
+	private final List<Triple<BigDecimal,BigDecimal,Integer>> pk_peak;
 	
 	public Record(String contributor) {
 		this.contributor	= contributor;
@@ -75,13 +104,10 @@ public class Record {
 		ms_focused_ion			= new ArrayList<Pair<String, String>>();
 		ms_data_processing		= new ArrayList<Pair<String, String>>();
 		pk_annotation_header	= new ArrayList<String>();
-		pk_annotation			= new ArrayList<List<String>>();
-		copyright				= null;
-		publication				= null;
+		pk_annotation			= new ArrayList<Pair<BigDecimal, List<String>>>();
 		
 		// set default values for mandatory fields
-		pk_num_peak				= -1;
-		pk_peak					= new ArrayList<List<Double>>();
+		pk_peak					= new ArrayList<Triple<BigDecimal,BigDecimal,Integer>>();
 	}
 	
 	public String CONTRIBUTOR() {
@@ -105,6 +131,7 @@ public class Record {
 		deprecated = value;
 	}
 	
+	// everything after the keyword "DEPRECATED: "
 	public String DEPRECATED_CONTENT() {
 		return deprecated_content;
 	}
@@ -173,6 +200,14 @@ public class Record {
 	}
 	
 	
+	public String PROJECT() {
+		return project;
+	}
+	public void PROJECT(String value) {
+		project=value;
+	}
+
+
 	public List<String> COMMENT() {
 		return comment;
 	}
@@ -206,7 +241,7 @@ public class Record {
 	* Returns the molecular formula as an String with HTML sup tags.
 	*/
 	public String CH_FORMULA1() {
-		IMolecularFormula m = MolecularFormulaManipulator.getMolecularFormula(ch_formula, DefaultChemObjectBuilder.getInstance());
+		IMolecularFormula m = MolecularFormulaManipulator.getMolecularFormula(ch_formula, SilentChemObjectBuilder.getInstance());
 		return MolecularFormulaManipulator.getHTML(m);
 	}
 	public void CH_FORMULA(String value) {
@@ -214,10 +249,10 @@ public class Record {
 	}
 	
 	
-	public double CH_EXACT_MASS() {
+	public BigDecimal CH_EXACT_MASS() {
 		return ch_exact_mass;
 	}
-	public void CH_EXACT_MASS(double value) {
+	public void CH_EXACT_MASS(BigDecimal value) {
 		ch_exact_mass=value;
 	}
 	
@@ -226,12 +261,12 @@ public class Record {
 		return ch_smiles;
 	}
 	public IAtomContainer CH_SMILES_obj() {
-		if ("N/A".equals(ch_smiles)) return new AtomContainer();
+		if ("N/A".equals(ch_smiles)) return SilentChemObjectBuilder.getInstance().newAtomContainer();
 		try {
-			return new SmilesParser(DefaultChemObjectBuilder.getInstance()).parseSmiles(ch_smiles);
+			return new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles(ch_smiles);
 		} catch (InvalidSmilesException e) {
 			logger.error("Structure generation from SMILES failed. Error: \""+ e.getMessage() + "\" for \"" + ch_smiles + "\".");
-			return new AtomContainer();
+			return SilentChemObjectBuilder.getInstance().newAtomContainer();
 		}
 	}
 	public void CH_SMILES(String value) {
@@ -243,10 +278,10 @@ public class Record {
 		return ch_iupac;
 	}
 	public IAtomContainer CH_IUPAC_obj() {
-		if ("N/A".equals(ch_iupac)) return new AtomContainer();
+		if ("N/A".equals(ch_iupac)) return SilentChemObjectBuilder.getInstance().newAtomContainer();
 		try {
 			// Get InChIToStructure
-			InChIToStructure intostruct = InChIGeneratorFactory.getInstance().getInChIToStructure(ch_iupac, DefaultChemObjectBuilder.getInstance());
+			InChIToStructure intostruct = InChIGeneratorFactory.getInstance().getInChIToStructure(ch_iupac, SilentChemObjectBuilder.getInstance());
 			INCHI_RET ret = intostruct.getReturnStatus();
 			if (ret == INCHI_RET.WARNING) {
 				// Structure generated, but with warning message
@@ -255,17 +290,17 @@ public class Record {
 			else if (ret != INCHI_RET.OKAY) {
 				// Structure generation failed
 				logger.error("Structure generation failed: " + ret.toString() + " [" + intostruct.getMessage() + "] for \"" + ch_iupac + "\".");
+				return  SilentChemObjectBuilder.getInstance().newAtomContainer();
 			}
 			return intostruct.getAtomContainer();
 		} catch (CDKException e) {
 			logger.error("Structure generation from InChI failed. Error: \""+ e.getMessage() + "\" for \"" + ch_iupac + "\".");
-			return new AtomContainer();
+			return  SilentChemObjectBuilder.getInstance().newAtomContainer();
 		}		 			
 	}
 	public void CH_IUPAC(String value) {
 		ch_iupac=value;
 	}
-
 	
 	public List<Pair<String, String>> CH_LINK() {
 		return ch_link;
@@ -385,26 +420,23 @@ public class Record {
 	}
 
 	// PK_ANNOTATION is a two-dimensional List
-	public List<List<String>> PK_ANNOTATION() {
+	public List<Pair<BigDecimal, List<String>>> PK_ANNOTATION() {
 		return pk_annotation;
 	}
-	public void PK_ANNOTATION_ADD_LINE(List<String> value) {
-		pk_annotation.add(new ArrayList<String>(value));
+	public void PK_ANNOTATION_ADD_LINE(Pair<BigDecimal, List<String>> annotation) {
+		pk_annotation.add(annotation);
 	}
 
 	public int PK_NUM_PEAK() {
-		return pk_num_peak;
-	}
-	public void PK_NUM_PEAK(int value) {
-		pk_num_peak	= value;
+		return pk_peak.size();
 	}
 
-	// PK_PEAK is a two-dimensional List
-	public List<List<Double>> PK_PEAK() {
+	// PK_PEAK is a List with Triple values M/Z, intensity, rel. intensity
+	public List<Triple<BigDecimal,BigDecimal,Integer>> PK_PEAK() {
 		return pk_peak;
 	}
-	public void PK_PEAK_ADD_LINE(List<Double> value) {
-		pk_peak.add(new ArrayList<Double>(value));
+	public void PK_PEAK_ADD_LINE(Triple<BigDecimal,BigDecimal,Integer> peak) {
+		pk_peak.add(peak);
 	}
 
 	public String toString() {
@@ -424,89 +456,288 @@ public class Record {
 			sb.append("COPYRIGHT: " + COPYRIGHT() + "\n");
 		if (PUBLICATION() != null)
 			sb.append("PUBLICATION: " + PUBLICATION() + "\n");
-		if (COMMENT() != null) {
-			for (String comment : COMMENT())
-				sb.append("COMMENT: " + comment + "\n");
-		}
-		if (CH_NAME() != null) {
-			for (String ch_name : CH_NAME())
-				sb.append("CH$NAME: " + ch_name + "\n");
-		}
+		if (PROJECT() != null)
+			sb.append("PROJECT: " + PROJECT() + "\n");
+		for (String comment : COMMENT())
+			sb.append("COMMENT: " + comment + "\n");
 		
-		sb.append("CH$COMPOUND_CLASS: " + CH_COMPOUND_CLASS().get(0));
-		for (String ch_compound_class : CH_COMPOUND_CLASS().subList(1, CH_COMPOUND_CLASS().size())) {
-			sb.append("; " + ch_compound_class );
-		}
-		sb.append("\n");
-				
+		for (String ch_name : CH_NAME())
+			sb.append("CH$NAME: " + ch_name + "\n");
+		sb.append("CH$COMPOUND_CLASS: " + String.join("; ", CH_COMPOUND_CLASS()) + "\n");
 		sb.append("CH$FORMULA: " + CH_FORMULA() + "\n");
 		sb.append("CH$EXACT_MASS: " + CH_EXACT_MASS() + "\n");
 		sb.append("CH$SMILES: " + CH_SMILES() + "\n");
 		sb.append("CH$IUPAC: " + CH_IUPAC() + "\n");
+		for (Pair<String,String> link : CH_LINK())
+			sb.append("CH$LINK: " + link.getKey() + " " + link.getValue() + "\n");
 		
-		if (CH_LINK() != null) {
-			for (Pair<String,String> link : CH_LINK())
-				sb.append("CH$LINK: " + link.getKey() + " " + link.getValue() + "\n");
-		}
 		if (SP_SCIENTIFIC_NAME() != null)
 			sb.append("SP$SCIENTIFIC_NAME: " + SP_SCIENTIFIC_NAME() + "\n");
 		if (SP_LINEAGE() != null)
 			sb.append("SP$LINEAGE: " + SP_LINEAGE() + "\n");
-		if (SP_LINK() != null) {
-			for (Pair<String,String> link : SP_LINK())
-				sb.append("SP$LINK: " + link.getKey() + " " + link.getValue() + "\n");
-		}
-		if (SP_SAMPLE() != null) {
-			for (String sample : SP_SAMPLE())
-				sb.append("SP$SAMPLE: " + sample + "\n");
-		}
+		for (Pair<String,String> link : SP_LINK())
+			sb.append("SP$LINK: " + link.getKey() + " " + link.getValue() + "\n");
+		for (String sample : SP_SAMPLE())
+			sb.append("SP$SAMPLE: " + sample + "\n");
+		
 		sb.append("AC$INSTRUMENT: " + AC_INSTRUMENT() + "\n");
 		sb.append("AC$INSTRUMENT_TYPE: " + AC_INSTRUMENT_TYPE() + "\n");
-		sb.append("AC$MASS_SPECTROMETRY: MS_TYPE: " + AC_MASS_SPECTROMETRY_MS_TYPE() + "\n");
-		sb.append("AC$MASS_SPECTROMETRY: ION_MODE: " + AC_MASS_SPECTROMETRY_ION_MODE() + "\n");
-		if (AC_MASS_SPECTROMETRY() != null) {
-			for (Pair<String,String> ac_mass_spectrometry : AC_MASS_SPECTROMETRY())
-				sb.append("AC$MASS_SPECTROMETRY: " + ac_mass_spectrometry.getKey() + " " + ac_mass_spectrometry.getValue() + "\n");
-		}
-		if (AC_CHROMATOGRAPHY() != null) {
-			for (Pair<String,String> ac_chromatography : AC_CHROMATOGRAPHY())
-				sb.append("AC$CHROMATOGRAPHY: " + ac_chromatography.getKey() + " " + ac_chromatography.getValue() + "\n");
-		}
-		if (MS_FOCUSED_ION() != null) {
-			for (Pair<String,String> ms_focued_ion : MS_FOCUSED_ION())
-				sb.append("MS$FOCUSED_ION: " + ms_focued_ion.getKey() + " " + ms_focued_ion.getValue() + "\n");
-		}
-		if (MS_DATA_PROCESSING() != null) {
-			for (Pair<String,String> ms_data_processing : MS_DATA_PROCESSING())
-				sb.append("MS$DATA_PROCESSING: " + ms_data_processing.getKey() + " " + ms_data_processing.getValue() + "\n");
-		}
+		sb.append("AC$MASS_SPECTROMETRY: MS_TYPE " + AC_MASS_SPECTROMETRY_MS_TYPE() + "\n");
+		sb.append("AC$MASS_SPECTROMETRY: ION_MODE " + AC_MASS_SPECTROMETRY_ION_MODE() + "\n");
+		for (Pair<String,String> ac_mass_spectrometry : AC_MASS_SPECTROMETRY())
+			sb.append("AC$MASS_SPECTROMETRY: " + ac_mass_spectrometry.getKey() + " " + ac_mass_spectrometry.getValue() + "\n");
+		for (Pair<String,String> ac_chromatography : AC_CHROMATOGRAPHY())
+			sb.append("AC$CHROMATOGRAPHY: " + ac_chromatography.getKey() + " " + ac_chromatography.getValue() + "\n");
+		for (Pair<String,String> ms_focued_ion : MS_FOCUSED_ION())
+			sb.append("MS$FOCUSED_ION: " + ms_focued_ion.getKey() + " " + ms_focued_ion.getValue() + "\n");
+		for (Pair<String,String> ms_data_processing : MS_DATA_PROCESSING())
+			sb.append("MS$DATA_PROCESSING: " + ms_data_processing.getKey() + " " + ms_data_processing.getValue() + "\n");
+
 		sb.append("PK$SPLASH: " + PK_SPLASH() + "\n");
-		
-		if (PK_ANNOTATION_HEADER() != null) {
+		if (!PK_ANNOTATION_HEADER().isEmpty()) {
 			sb.append("PK$ANNOTATION:");
 			for (String annotation_header_item : PK_ANNOTATION_HEADER())
 				sb.append(" " + annotation_header_item);
 			sb.append("\n");
-			for (List<String> annotation_line :  PK_ANNOTATION()) {
-				sb.append(" ");
-				for (String annotation_item : annotation_line )
-					sb.append(" " + annotation_item);
-				sb.append("\n");
+			for (Pair<BigDecimal, List<String>> annotation_line :  PK_ANNOTATION()) {
+				sb.append("  " + annotation_line.getLeft() + " " + String.join(" ", annotation_line.getRight()) + "\n");
 			}
 		}
 
 		sb.append("PK$NUM_PEAK: " + PK_NUM_PEAK() + "\n");
 		sb.append("PK$PEAK: m/z int. rel.int.\n");
-		for (List<Double> peak_line :  PK_PEAK()) {
-			sb.append(" ");
-			for (Double peak_line_item : peak_line )
-				sb.append(" " + peak_line_item.toString());
-			sb.append("\n");
+		for (Triple<BigDecimal,BigDecimal,Integer> peak : PK_PEAK()) {
+			String intensity1 = peak.getMiddle().toPlainString();
+			String intensity2 = peak.getMiddle().toString();
+			String intensity = (intensity1.length() <  intensity2.length() ) ? intensity1 : intensity2;
+			sb.append("  " + peak.getLeft() + " " + intensity + " " + peak.getRight() + "\n");
+		}
+		sb.append("//\n");
+
+		return sb.toString();
+	}
+	
+	public String createRecordString() {
+		StringBuilder sb = new StringBuilder();
+		
+		sb.append("<b>ACCESSION:</b> " + ACCESSION() + "<br>\n");
+		sb.append("<b>RECORD_TITLE:</b> " + RECORD_TITLE1() + "<br>\n");
+		sb.append("<b>DATE:</b> " + DATE() + "<br>\n");
+		sb.append("<b>AUTHORS:</b> " + AUTHORS() + "<br>\n");
+		sb.append("<b>LICENSE:</b> <a href=\"https://creativecommons.org/licenses/\" target=\"_blank\">" + LICENSE() + "</a><br>\n");
+		if (COPYRIGHT() != null) 
+			sb.append("<b>COPYRIGHT:</b> " + COPYRIGHT() + "<br>\n");
+		if (PUBLICATION() != null) {
+			String pub=PUBLICATION();
+			String regex_doi = "10\\.\\d{3,9}\\/[\\-\\._;\\(\\)\\/:a-zA-Z0-9]+[a-zA-Z0-9]";
+			String regex_pmid = "PMID:[ ]?\\d{8,8}";
+			Pattern pattern_doi = Pattern.compile(".*" + "(" + regex_doi+ ")" + ".*");
+			Pattern pattern_pmid = Pattern.compile(".*" + "(" + regex_pmid	+ ")" + ".*");
+			Matcher matcher_doi = pattern_doi.matcher(pub);
+		    Matcher matcher_pmid = pattern_pmid.matcher(pub);
+		    if(matcher_doi.matches()){
+				//link doi
+				String doi=pub.substring(matcher_doi.start(1), matcher_doi.end(1));
+				pub.replaceAll(doi, "<a href=\"https:\\/\\/doi.org/" + doi + "\" target=\"_blank\">" + doi + "</a>");
+			} else if (matcher_pmid.matches()) {
+				String PMID = pub.substring(matcher_pmid.start(1), matcher_pmid.end(1));
+		    	String id = PMID.substring("PMID:".length()).trim();
+		    	pub = pub.replaceAll(PMID, "<a href=\"http:\\/\\/www.ncbi.nlm.nih.gov/pubmed/" + id + "?dopt=Citation\" target=\"_blank\">" + PMID + "</a>");
+			}
+			sb.append("<b>PUBLICATION:</b> " + pub + "<br>\n");
+		}
+		if (PROJECT() != null)
+			sb.append("<b>PROJECT:</b> " + PROJECT() + "<br>\n");
+		for (String comment : COMMENT())
+			sb.append("<b>COMMENT:</b> " + comment + "<br>\n");
+		sb.append("<hr>\n");
+		
+		for (String ch_name : CH_NAME())
+			sb.append("<b>CH$NAME:</b> " + ch_name + "<br>\n");
+		sb.append("<b>CH$COMPOUND_CLASS:</b> " + String.join("; ", CH_COMPOUND_CLASS()) + "<br>\n");
+		sb.append("<b>CH$FORMULA:</b> <a href=\"http://www.chemspider.com/Search.aspx?q=" + CH_FORMULA() + "\" target=\"_blank\">" + CH_FORMULA1() + "</a><br>\n");
+		sb.append("<b>CH$EXACT_MASS:</b> " + CH_EXACT_MASS() + "<br>\n");
+		sb.append("<b>CH$SMILES:</b> " + CH_SMILES() + "<br>\n");
+		sb.append("<b>CH$IUPAC:</b> " + CH_IUPAC() + "<br>\n");
+		for (Pair<String,String> link : CH_LINK()) {
+			switch(link.getKey()){
+				case "CAS":
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"https://www.google.com/search?q=&quot;" + link.getValue() + "&quot;\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					break;
+				case "CAYMAN":
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"https://www.caymanchem.com/product/" + link.getValue() + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					break;
+				case "CHEBI":
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:" + link.getValue() + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					break;
+				case "CHEMSPIDER":
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"https://www.chemspider.com/" + link.getValue() + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					break;
+				case "COMPTOX":
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"https://comptox.epa.gov/dashboard/dsstoxdb/results?search=" + link.getValue() + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					break;
+				case "HMDB":
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"http://www.hmdb.ca/metabolites/" + link.getValue() + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					break;
+				case "INCHIKEY":
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"https://www.google.com/search?q=&quot;" + link.getValue() + "&quot;\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					break;
+				case "KAPPAVIEW":
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"http://kpv.kazusa.or.jp/kpv4/compoundInformation/view.action?id=" + link.getValue() + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					break;
+				case "KEGG":
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"https://www.genome.jp/dbget-bin/www_bget?cpd:" + link.getValue() + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					break;
+				case "KNAPSACK":
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"http://www.knapsackfamily.com/knapsack_jsp/information.jsp?sname=C_ID&word=" + link.getValue() + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					break;
+
+				case "LIPIDBANK":
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"http://lipidbank.jp/cgi-bin/detail.cgi?id=" + link.getValue() + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					break;
+				case "LIPIDMAPS":
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"https://www.lipidmaps.org/data/LMSDRecord.php?LMID=" + link.getValue() + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					break;
+				case "NIKKAJI":
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"https://jglobal.jst.go.jp/en/redirect?Nikkaji_No=" + link.getValue() + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					break;
+				case "PUBCHEM":{
+					if(link.getValue().startsWith("CID:")) sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"https://pubchem.ncbi.nlm.nih.gov/compound/" + link.getValue().substring("CID:".length()) + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					else if(link.getValue().startsWith("SID:")) sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"https://pubchem.ncbi.nlm.nih.gov/substance/" + link.getValue().substring("SID:".length()) + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					else sb.append("<b>CH$LINK:</b> " + link.getKey() + " " + link.getValue() + "<br>\n");
+					break;
+				}
+				default:
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " " + link.getValue() + "<br>\n");
+			}
+		}
+		
+		if (SP_SCIENTIFIC_NAME() != null)
+			sb.append("<b>SP$SCIENTIFIC_NAME:</b> " + SP_SCIENTIFIC_NAME() + "<br>\n");
+		if (SP_LINEAGE() != null)
+			sb.append("<b>SP$LINEAGE:</b> " + SP_LINEAGE() + "<br>\n");
+		for (Pair<String,String> link : SP_LINK())
+			sb.append("<b>SP$LINK:</b> " + link.getKey() + " " + link.getValue() + "<br>\n");
+		for (String sample : SP_SAMPLE())
+				sb.append("<b>SP$SAMPLE:</b> " + sample + "<br>\n");
+		sb.append("<hr>\n");
+		
+		sb.append("<b>AC$INSTRUMENT:</b> " + AC_INSTRUMENT() + "<br>\n");
+		sb.append("<b>AC$INSTRUMENT_TYPE:</b> " + AC_INSTRUMENT_TYPE() + "<br>\n");
+		sb.append("<b>AC$MASS_SPECTROMETRY:</b> MS_TYPE " + AC_MASS_SPECTROMETRY_MS_TYPE() + "<br>\n");
+		sb.append("<b>AC$MASS_SPECTROMETRY:</b> ION_MODE " + AC_MASS_SPECTROMETRY_ION_MODE() + "<br>\n");
+		for (Pair<String,String> ac_mass_spectrometry : AC_MASS_SPECTROMETRY())
+			sb.append("<b>AC$MASS_SPECTROMETRY:</b> " + ac_mass_spectrometry.getKey() + " " + ac_mass_spectrometry.getValue() + "<br>\n");
+		for (Pair<String,String> ac_chromatography : AC_CHROMATOGRAPHY())
+			sb.append("<b>AC$CHROMATOGRAPHY:</b> " + ac_chromatography.getKey() + " " + ac_chromatography.getValue() + "<br>\n");
+		sb.append("<hr>\n");
+		
+		for (Pair<String,String> ms_focued_ion : MS_FOCUSED_ION())
+			sb.append("<b>MS$FOCUSED_ION:</b> " + ms_focued_ion.getKey() + " " + ms_focued_ion.getValue() + "<br>\n");
+		for (Pair<String,String> ms_data_processing : MS_DATA_PROCESSING())
+				sb.append("<b>MS$DATA_PROCESSING:</b> " + ms_data_processing.getKey() + " " + ms_data_processing.getValue() + "<br>\n");
+		if (!MS_FOCUSED_ION().isEmpty() || !MS_DATA_PROCESSING().isEmpty()) sb.append("<hr>\n");
+		
+		sb.append("<b>PK$SPLASH:</b> <a href=\"http://www.google.com/search?q=" + PK_SPLASH() + "\" target=\"_blank\">" + PK_SPLASH() + "</a><br>\n");
+		if (!PK_ANNOTATION_HEADER().isEmpty()) {
+			sb.append("<b>PK$ANNOTATION:</b>");
+			for (String annotation_header_item : PK_ANNOTATION_HEADER())
+				sb.append(" " + annotation_header_item);
+			sb.append("<br>\n");
+			for (Pair<BigDecimal, List<String>> annotation_line :  pk_annotation) {
+				sb.append("&nbsp&nbsp" + annotation_line.getLeft() + "&nbsp" + String.join("&nbsp", annotation_line.getRight()) + "<br>\n");
+			}
+		}
+		sb.append("<b>PK$NUM_PEAK:</b> " + PK_NUM_PEAK() + "<br>\n");
+		sb.append("<b>PK$PEAK:</b> m/z int. rel.int.<br>\n");
+		for (Triple<BigDecimal,BigDecimal,Integer> peak : PK_PEAK()) {
+			sb.append("&nbsp&nbsp" + peak.getLeft() + "&nbsp" + peak.getMiddle() + "&nbsp" + peak.getRight() + "<br>\n");
 		}
 		
 		sb.append("//");
 
 		return sb.toString();
+	}
+	
+	public String createStructuredData() {
+		String InChiKey = CH_LINK_asMap().get("INCHIKEY");
+		String description = "This MassBank record with Accession " + ACCESSION() 
+			+ " contains the " + AC_MASS_SPECTROMETRY_MS_TYPE() + " mass spectrum of '" + RECORD_TITLE().get(0)
+			+ ((InChiKey!=null) ? "'." : "' with the InChIkey '" + InChiKey + "'.");
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("<script type=\"application/ld+json\">\n");
+		sb.append("[\n");
+		sb.append("{\n");
+		sb.append("\"identifier\": \""+ACCESSION()+"\",\n");
+		sb.append("\"url\": \"https://massbank.eu/MassBank/RecordDisplay?id="+ACCESSION()+"\",\n");
+		sb.append("\"name\": \""+RECORD_TITLE().get(0)+"\",\n");
+		if (CH_NAME().size() == 1)  sb.append("\"alternateName\": \""+ CH_NAME().get(0) +"\",\n");
+		else if (CH_NAME().size() >= 1) sb.append("\"alternateName\": [\""+ String.join("\", \"", CH_NAME()) +"\"],\n");
+		if (InChiKey!=null) sb.append("\"inchikey\": \"" + InChiKey + "\",\n");
+		sb.append("\"description\": \"" + description + "\",\n");
+		sb.append("\"molecularFormula\": \""+CH_FORMULA()+"\",\n");
+		sb.append("\"monoisotopicMolecularWeight\": \""+CH_EXACT_MASS()+"\",\n");
+		sb.append("\"inChI\": \""+CH_IUPAC()+"\",\n");
+		sb.append("\"smiles\": \""+CH_SMILES()+"\",\n");
+		sb.append("\"@context\": \"http://schema.org\",\n");
+		sb.append("\"@type\": \"MolecularEntity\"\n");
+		sb.append("},\n");
+
+		sb.append("{\n");
+		sb.append("\"identifier\": \""+ACCESSION()+"\",\n");
+		sb.append("\"url\": \"https://massbank.eu/MassBank/RecordDisplay?id="+ACCESSION()+"\",\n");
+		sb.append("\"headline\": \""+RECORD_TITLE1()+"\",\n");
+		sb.append("\"name\": \""+RECORD_TITLE().get(0)+"\",\n");
+		sb.append("\"description\": \"" + description + "\",\n");
+		sb.append("\"measurementTechnique\": \"mass spectrometry\",\n");
+		String[] tokens	= DATE1();
+		sb.append("\"datePublished\": \""+tokens[0].replace(".","-")+"\",\n");
+		if(tokens.length >= 2) { sb.append("\"dateCreated\": \""+tokens[1].replace(".","-")+"\",\n"); }
+		if(tokens.length == 3) { sb.append("\"dateModified\": \""+tokens[2].replace(".","-")+"\",\n"); }
+		// sb.append("\"license\": \"https://creativecommons.org/licenses\",\n");
+		// sb.append("\"license\": \""+LICENSE() +"\",\n");
+		// Convert licenses to URLs
+		if (LICENSE().equals("CC0")) { sb.append("\"license\": \"https://creativecommons.org/share-your-work/public-domain/cc0\",\n");
+		} else if (LICENSE().equals("CC BY-SA") || LICENSE().equals("CC BY SA") || LICENSE().equals("CC-BY SA") || LICENSE().equals("CC-BY-SA")) { sb.append("\"license\": \"https://creativecommons.org/licenses/by-sa/4.0\",\n");
+		} else if (LICENSE().equals("CC BY") || LICENSE().equals("CC-BY") || LICENSE().equals("BY CC") || LICENSE().equals("BY-CC")) { sb.append("\"license\": \"https://creativecommons.org/licenses/by/4.0\",\n");
+		} else if (LICENSE().equals("CC BY-NC") || LICENSE().equals("CC-BY-NC") || LICENSE().equals("CC BY NC") || LICENSE().equals("CC-BY NC")) { sb.append("\"license\": \"https://creativecommons.org/licenses/by-nc/4.0\",\n");
+		} else if (LICENSE().equals("CC BY-SA NC") || LICENSE().equals("CC BY-NC-SA 4.0 International") || LICENSE().equals("CC BY-NC-SA")) { sb.append("\"license\": \"https://creativecommons.org/licenses/by-nc-sa/4.0\",\n");
+		} else if (LICENSE().equals("CC BY-NC-ND")) { sb.append("\"license\": \"https://creativecommons.org/licenses/by-nc-nd/4.0\",\n");
+		} else sb.append("\"license\": \"null\",\n");
+
+		sb.append("\"citation\": \""+PUBLICATION()+"\",\n");
+		if (COMMENT().size() == 1)  sb.append("\"comment\": \""+ COMMENT().get(0) +"\",\n");
+		else if (COMMENT().size() >= 1) sb.append("\"comment\": [\""+ String.join("\", \"", COMMENT()) +"\"],\n");
+		if (CH_NAME().size() == 1)  sb.append("\"alternateName\": \""+ CH_NAME().get(0) +"\",\n");
+		else if (CH_NAME().size() >= 1) sb.append("\"alternateName\": [\""+ String.join("\", \"", CH_NAME()) +"\"],\n");
+		
+		sb.append("\"@context\": \"http://schema.org\",\n");
+		sb.append("\"@type\": \"Dataset\"\n");
+		sb.append("}\n");
+		sb.append("]\n");
+		sb.append("</script>");
+		return sb.toString();
+	}
+	
+	public String createPeakListForSpectrumViewer() {
+        // convert a list of lists [[mz, int, rel.int], [...], ...]
+        // to String "mz,rel.int@mz,rel.int@..."
+		List<String> peaks = new ArrayList<>();
+		for (Triple<BigDecimal,BigDecimal,Integer> peak : PK_PEAK()) {
+			peaks.add(peak.getRight()+","+peak.getLeft());
+		}
+		return String.join("@", peaks);
+	}
+	
+	public JSONObject createPeakListData() {
+		JSONObject result = new JSONObject();
+		JSONArray peaklist = new JSONArray();
+		for (Triple<BigDecimal,BigDecimal,Integer> peak : PK_PEAK()) {
+			peaklist.put(new JSONObject().put("intensity", peak.getRight()).put("mz", peak.getLeft()));
+		}
+		result.put("peaks", peaklist);
+		return result;
 	}
 	
 	public static class Structure{
@@ -528,13 +759,10 @@ public class Record {
 			this.FULL_NAME	= FULL_NAME;
 		}
 	}
-	public static Map<String, String> listToMap(List<Pair<String, String>> list) {
+	
+	private static Map<String, String> listToMap(List<Pair<String, String>> list) {
 		Map<String, String> map	= new HashMap<String, String>();
-		
-		for (Pair<String, String> pair : list)
-			map.put(pair.getKey(), pair.getValue());
-		
-		return map;
-		
+		for (Pair<String, String> pair : list) map.put(pair.getKey(), pair.getValue());
+		return map;		
 	}
 }
