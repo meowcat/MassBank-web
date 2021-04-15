@@ -33,6 +33,7 @@ import org.petitparser.context.Result;
 import org.petitparser.context.Token;
 import org.petitparser.parser.primitive.CharacterParser;
 import org.petitparser.parser.primitive.StringParser;
+import org.petitparser.parser.Parser;
 import org.petitparser.tools.GrammarDefinition;
 
 import edu.ucdavis.fiehnlab.spectra.hash.core.Spectrum;
@@ -856,24 +857,38 @@ public class RecordParserDefinition extends GrammarDefinition {
 		// CH$LINK: KEGG C00037
 		// CH$LINK: PUBCHEM SID: 11916 CID:182232
 		// CH$LINK fields should be arranged by the alphabetical order of database names.
+		String[] linkSubtags = {
+			"CAS",
+			"CAYMAN",
+			"CHEBI",     
+			"CHEMBL",    
+			"CHEMPDB",   
+			"CHEMSPIDER",
+			"COMPTOX",   
+			"HMDB",      
+			"INCHIKEY",  
+			"KAPPAVIEW", 
+			"KEGG",      
+			"KNAPSACK",  
+			"LIPIDBANK", 
+			"LIPIDMAPS", 
+			"NIKKAJI",   
+			"PUBCHEM",   
+			"ZINC"
+		};
+		
+		Parser subtagParser = null;
+		for(String linkSubtag: linkSubtags) {
+			if(subtagParser == null)
+				subtagParser = StringParser.of(String.format("%s ", linkSubtag));
+			else
+				subtagParser = subtagParser.or(
+					StringParser.of(String.format("%s ", linkSubtag))
+					);
+		}
+		
 		def("ch_link_subtag",
-			StringParser.of("CAS ")
-			.or(StringParser.of("CAYMAN "))
-			.or(StringParser.of("CHEBI "))
-			.or(StringParser.of("CHEMBL "))
-			.or(StringParser.of("CHEMPDB "))
-			.or(StringParser.of("CHEMSPIDER "))
-			.or(StringParser.of("COMPTOX "))
-			.or(StringParser.of("HMDB "))
-			.or(StringParser.of("INCHIKEY "))
-			.or(StringParser.of("KAPPAVIEW "))
-			.or(StringParser.of("KEGG "))
-			.or(StringParser.of("KNAPSACK "))
-			.or(StringParser.of("LIPIDBANK "))
-			.or(StringParser.of("LIPIDMAPS "))
-			.or(StringParser.of("NIKKAJI "))
-			.or(StringParser.of("PUBCHEM "))
-			.or(StringParser.of("ZINC "))
+			subtagParser
 		);
 		def("ch_link",
 			StringParser.of("CH$LINK")
