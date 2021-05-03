@@ -81,6 +81,7 @@ public class RefreshDatabase {
 		List<File> recordfiles = new ArrayList<>();
 		for (String file : dataRootPath.list(DirectoryFileFilter.INSTANCE)) {
 			if (file.equals(".scripts")) continue;
+			if (file.equals(".config")) continue;
 			if (file.equals(".figure")) continue;
 			recordfiles.addAll(FileUtils.listFiles(new File(dataRootPath, file), new String[] {"txt"}, true));
 		}

@@ -580,7 +580,7 @@ public class Record {
 					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"http://www.hmdb.ca/metabolites/" + link.getValue() + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
 					break;
 				case "INCHIKEY":
-					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"https://www.google.ch/search?q=&quot;" + link.getValue() + "&quot;\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
+					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"https://www.google.com/search?q=&quot;" + link.getValue() + "&quot;\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
 					break;
 				case "KAPPAVIEW":
 					sb.append("<b>CH$LINK:</b> " + link.getKey() + " <a href=\"http://kpv.kazusa.or.jp/kpv4/compoundInformation/view.action?id=" + link.getValue() + "\" target=\"_blank\">" + link.getValue() + "</a><br>\n");
