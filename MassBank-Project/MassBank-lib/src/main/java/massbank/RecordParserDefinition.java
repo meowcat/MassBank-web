@@ -3,6 +3,12 @@ package massbank;
 import static org.petitparser.parser.primitive.CharacterParser.digit;
 import static org.petitparser.parser.primitive.CharacterParser.letter;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -12,7 +18,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import org.apache.commons.configuration2.ex.ConfigurationException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
@@ -44,9 +52,60 @@ import edu.ucdavis.fiehnlab.spectra.hash.core.types.SpectraType;
 import edu.ucdavis.fiehnlab.spectra.hash.core.types.SpectrumImpl;
 import net.sf.jniinchi.INCHI_RET;
 
+import massbank.Config;
+
 public class RecordParserDefinition extends GrammarDefinition {
 	private static final Logger logger = LogManager.getLogger(RecordParserDefinition.class);
 
+	
+	private static String[] getResourceFileAsArray(String fileName) throws IOException {
+		ClassLoader classLoader = ClassLoader.getSystemClassLoader();
+		
+		// Try to load from user directory
+		File configRootPath = null;
+        File fileFromData = null;
+		try {
+			configRootPath = new File(Config.get().DataRootPath(), ".config");
+			fileFromData = new File(configRootPath, fileName);
+			logger.info("Path for resource to load: " + fileFromData.getAbsolutePath());
+		} catch (ConfigurationException e) {
+			// fileFromData stays null
+		}
+		if((fileFromData != null) && fileFromData.exists()) {
+			try(FileReader fr = new FileReader(fileFromData); BufferedReader reader = new BufferedReader(fr)) {
+				return reader.lines().toArray(String[]::new);
+			}
+		}
+		// If not found: try to load fallback from internal resources
+		else {
+			logger.warn("User resource not found, falling back to internal resource");
+			try (InputStream is = classLoader.getResourceAsStream(fileName)) {
+				if (is == null)
+					return null;
+				try (InputStreamReader isr = new InputStreamReader(is); BufferedReader reader = new BufferedReader(isr)) {
+					return reader.lines().toArray(String[]::new);
+				}
+			}
+		}
+
+
+	}
+	
+	private static String[] chLinkEntries = null;
+	private String[] getChLinkEntries() {
+		if(chLinkEntries == null)
+			try {
+				chLinkEntries = getResourceFileAsArray("recordformat/ch_link.ini");
+			} catch (IOException e) {
+				chLinkEntries = new String[0];
+			}
+		return(chLinkEntries);
+	}
+	
+	
+	
+	
+	
 	IMolecularFormula fromCH_FORMULA = SilentChemObjectBuilder.getInstance().newInstance(IMolecularFormula.class);
 	IAtomContainer fromCH_SMILES = SilentChemObjectBuilder.getInstance().newAtomContainer();
 	String InChiKeyFromCH_SMILES = "";
@@ -117,7 +176,6 @@ public class RecordParserDefinition extends GrammarDefinition {
 		def("valuesep", StringParser.of("; "));
 		def("endtag", StringParser.of("//").seq(Token.NEWLINE_PARSER));
 		def("multiline_start", StringParser.of("  "));
-		
 		def("uint_primitive", digit().plus().flatten());
 		def("number_primitive",
 			digit().plus()
@@ -154,7 +212,7 @@ public class RecordParserDefinition extends GrammarDefinition {
 					)
 				)
 				.or(
-					(letter().or(digit())).times(8)
+					(letter().or(digit())).repeat(1, 32)
 				)
 				.flatten()
 				.map((String value) -> {
@@ -857,25 +915,7 @@ public class RecordParserDefinition extends GrammarDefinition {
 		// CH$LINK: KEGG C00037
 		// CH$LINK: PUBCHEM SID: 11916 CID:182232
 		// CH$LINK fields should be arranged by the alphabetical order of database names.
-		String[] linkSubtags = {
-			"CAS",
-			"CAYMAN",
-			"CHEBI",     
-			"CHEMBL",    
-			"CHEMPDB",   
-			"CHEMSPIDER",
-			"COMPTOX",   
-			"HMDB",      
-			"INCHIKEY",  
-			"KAPPAVIEW", 
-			"KEGG",      
-			"KNAPSACK",  
-			"LIPIDBANK", 
-			"LIPIDMAPS", 
-			"NIKKAJI",   
-			"PUBCHEM",   
-			"ZINC"
-		};
+		String[] linkSubtags = getChLinkEntries();
 		
 		Parser subtagParser = null;
 		for(String linkSubtag: linkSubtags) {
