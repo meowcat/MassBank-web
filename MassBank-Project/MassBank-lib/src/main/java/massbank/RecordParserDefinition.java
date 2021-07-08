@@ -59,6 +59,7 @@ public class RecordParserDefinition extends GrammarDefinition {
 	
 	private final boolean legacy;
 	
+	private static String[] getResourceFileAsArray(String fileName) throws IOException {
 		ClassLoader classLoader = ClassLoader.getSystemClassLoader();
 		
 		// Try to load from user directory
@@ -213,7 +214,7 @@ public class RecordParserDefinition extends GrammarDefinition {
 					)
 				)
 				.or(
-					(letter().or(digit())).repeat(1, 32)
+					(letter().or(digit()).or(CharacterParser.of('_'))).repeat(1, 32)
 				)
 				.flatten()
 				.map((String value) -> {
@@ -377,6 +378,8 @@ public class RecordParserDefinition extends GrammarDefinition {
 			.or(StringParser.of("CC BY-NC"))
 			.or(StringParser.of("CC BY-SA"))
 			.or(StringParser.of("CC BY"))
+			.or(StringParser.of("internal"))
+
 		);
 		def("license",
 			StringParser.of("LICENSE")
