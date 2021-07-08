@@ -414,6 +414,8 @@ LICENSE: CC BY
 ```
 
 Contributors to MassBank are encouraged to show the license `CC BY`. This license mean that others are free to "share" (copy and redistribute the MassBank record in any medium or format) and to "adapt" (remix, transform, and build upon the MassBank record) for any purpose, even commercially. The contributors cannot revoke these freedoms as long as the others follow the license terms.
+Allowed licenses are: `CC0`, `CC BY`, `CC BY-NC`, `CC BY-NC-SA`, `CC BY-SA` check https://creativecommons.org/licenses/
+
 
 #### <a name="2.1.6"></a>2.1.6 COPYRIGHT
 Copyright of MassBank Record. Optional
@@ -536,7 +538,7 @@ Example 2:
 CH$FORMULA: [C5H14NO]+
 ```
 
-It follows the Hill's System. No prosthetic molecule is included (see <a href="#2.2.1">2.2.1</a> `CH$NAME`). If possible the neutral forn should be given. Charged molecules are given in square brackets with charge behind. Molecular formulae of derivatives by chemical modification with TMS, etc. should be given in <a href="#2.5.1">2.5.1</a> `MS$FOCUSED_ION: DERIVATIVE_FORM`.
+It follows the Hill's System. No prosthetic molecule is included (see <a href="#2.2.1">2.2.1</a> `CH$NAME`). If possible the neutral form of a functional group should be given. Charged molecules are given in square brackets with charge behind. Molecular formulae of derivatives by chemical modification with TMS, etc. should be given in <a href="#2.5.1">2.5.1</a> `MS$FOCUSED_ION: DERIVATIVE_FORM`.
 
 #### <a name="2.2.4"></a>2.2.4 CH$EXACT\_MASS
 Monoisotopic Mass of Chemical Compound. Mandatory
