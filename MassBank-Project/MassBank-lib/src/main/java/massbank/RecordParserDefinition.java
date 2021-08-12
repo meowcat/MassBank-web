@@ -212,7 +212,7 @@ public class RecordParserDefinition extends GrammarDefinition {
 					)
 				)
 				.or(
-					(letter().or(digit())).repeat(1, 32)
+					(letter().or(digit()).or(CharacterParser.of('_'))).repeat(1, 32)
 				)
 				.flatten()
 				.map((String value) -> {

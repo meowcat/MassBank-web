@@ -241,8 +241,9 @@ public class Record {
 	* Returns the molecular formula as an String with HTML sup tags.
 	*/
 	public String CH_FORMULA1() {
-		IMolecularFormula m = MolecularFormulaManipulator.getMolecularFormula(ch_formula, SilentChemObjectBuilder.getInstance());
-		return MolecularFormulaManipulator.getHTML(m);
+		//IMolecularFormula m = MolecularFormulaManipulator.getMolecularFormula(ch_formula, SilentChemObjectBuilder.getInstance());
+		//return MolecularFormulaManipulator.getHTML(m);
+		return ch_formula;
 	}
 	public void CH_FORMULA(String value) {
 		ch_formula=value;
