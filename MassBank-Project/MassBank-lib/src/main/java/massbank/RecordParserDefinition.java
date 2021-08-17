@@ -103,7 +103,19 @@ public class RecordParserDefinition extends GrammarDefinition {
 		return(chLinkEntries);
 	}
 	
-	
+	private static String[] allowedLicenses = null;
+	private String[] getAllowedLicenses() {
+		if(allowedLicenses == null)
+			try {
+				allowedLicenses = getResourceFileAsArray("recordformat/licenses.ini");
+			} catch (IOException e) {
+				allowedLicenses = new String[0];
+			}
+		return(allowedLicenses);
+	}
+
+
+
 	
 	
 	
@@ -371,15 +383,24 @@ public class RecordParserDefinition extends GrammarDefinition {
 		// License of MassBank Record. Mandatory
 		// Example
 		// LICENSE: CC BY
-		def("allowed_licenses",
-			StringParser.of("CC0")			
-			.or(StringParser.of("CC BY-NC-ND"))
-			.or(StringParser.of("CC BY-NC-SA"))
-			.or(StringParser.of("CC BY-NC"))
-			.or(StringParser.of("CC BY-SA"))
-			.or(StringParser.of("CC BY"))
-			.or(StringParser.of("internal"))
+		
+		String[] localAllowedLicenses = getAllowedLicenses();
+		
+		Parser licenseSubtagParser = null;
+		for(String allowedLicense: localAllowedLicenses) {
+			if(licenseSubtagParser == null)
+				licenseSubtagParser = StringParser.of(allowedLicense);
+			else
+				licenseSubtagParser = licenseSubtagParser.or(
+					StringParser.of(allowedLicense)
+					);
+		}
+		
 
+
+
+		def("allowed_licenses",
+			licenseSubtagParser
 		);
 		def("license",
 			StringParser.of("LICENSE")
