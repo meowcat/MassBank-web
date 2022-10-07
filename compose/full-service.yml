@@ -2,17 +2,19 @@ version: '3'
 
 services:
   mariadb:
-    image: mariadb:latest
+    build:
+      context: .
+      dockerfile: Dockerfile-mariadb
     volumes:
       - $PWD/modules/sql/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
     environment:
       MYSQL_ROOT_PASSWORD: 123blah321
     restart: always
 
-  tomcat:
-    image: tomcat:latest
+  tomee:
+    image: tomee:8
     volumes:
-      - $PWD/MassBank-Project/MassBank/target/MassBank.war:/usr/local/tomcat/webapps/MassBank.war
+      - $PWD/MassBank-Project/MassBank-web/target/MassBank.war:/usr/local/tomee/webapps/MassBank.war
       - $PWD/conf/full-service.conf:/etc/massbank.conf
       - $PWD/../MassBank-data:/MassBank-data  
     ports:
@@ -21,12 +23,12 @@ services:
     depends_on:
       - mariadb
     environment:
-      JAVA_OPTS: -Xmx4g -Xms4g
+      JAVA_OPTS: -Xmx4g -Xms1g
     links:
       - "mariadb:massbank_mariadb"
 
   maven:
-    image: maven:latest
+    image: maven:3.6-jdk-11
     volumes:
       - $HOME/.m2:/var/maven/.m2
       - $PWD/MassBank-Project:/project
@@ -35,7 +37,7 @@ services:
     user: ${CURRENT_UID}
 
   dbupdate:
-    image: maven:latest
+    image: maven:3.6-jdk-11
     volumes:
       - $PWD/MassBank-Project:/project
       - $PWD/conf/full-service.conf:/etc/massbank.conf

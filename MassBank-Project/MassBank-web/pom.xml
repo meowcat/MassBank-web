@@ -1,0 +1,63 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<artifactId>MassBank-Project</artifactId>
+		<groupId>de.ipb-halle.msbi</groupId>
+		<version>2.2.1-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>MassBank-web</artifactId>
+	<packaging>war</packaging>
+
+	<name>MassBank servlet</name>
+	<dependencies>
+		<dependency>
+			<groupId>de.ipb-halle.msbi</groupId>
+			<artifactId>MassBank-lib</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>jakarta.platform</groupId>
+			<artifactId>jakarta.jakartaee-api</artifactId>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.jfree</groupId>
+			<artifactId>jfreechart</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.jfree</groupId>
+			<artifactId>jfreesvg</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>jstl</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.github.dfabulich</groupId>
+			<artifactId>sitemapgen4j</artifactId>
+		</dependency>
+	</dependencies>
+	<build>
+		<finalName>MassBank</finalName>
+		<!-- https://www.triology.de/blog/versionsnamen-mit-maven-erzeugen-des-versionsnamens -->
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-war-plugin</artifactId>
+				<configuration>
+					<!-- Filter for version name in html -->
+					<webResources>
+						<resource>
+							<directory>src/main/webapp</directory>
+							<filtering>true</filtering>
+							<includes>
+								<include>copyrightline.html</include>
+								<include>copyrightline_legacy.html</include>
+							</includes>
+						</resource>
+					</webResources>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+</project>
