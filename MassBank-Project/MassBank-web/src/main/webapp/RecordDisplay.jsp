@@ -47,8 +47,10 @@
 	<script src="js/st.js"></script>
 	<!-- SpeckTackle MassBank loading script-->
 	<script src="js/massbank_specktackle.js"></script>
-    
+	
+	<script type="application/ld+json">
 ${structureddata}
+	</script>
 </head>
 
 <body class="w3-theme-gradient">
@@ -92,7 +94,7 @@ ${structureddata}
 			<div class="w3-row">
 				<div class="w3-twothird w3-text-grey w3-small">
 					<a
-						href="https://metabolomics-usi.ucsd.edu/spectrum/?usi=mzspec:MASSBANK::accession:${accession}"
+						href="https://metabolomics-usi.gnps2.org/spectrum/?usi=mzspec:MASSBANK::accession:${accession}"
 						target="_blank">metabolomics-usi visualisation</a>
 				</div>
 			</div>
